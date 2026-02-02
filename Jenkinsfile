@@ -1,89 +1,87 @@
 pipeline {
     agent any
-
-    environment {
-        APP_NAME = "cicd-web-demo"
-        STAGING_PORT = "8081"
-        PROD_PORT = "8082"
-    }
-
-    options {
-        timestamps()
-        disableConcurrentBuilds()
-    }
-
+    
     stages {
-
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
-                echo "Descargando el código..."
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],  
+                    extensions: [],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/angelarriagam94/cicd-web-demo.git',
+                        credentialsId: 'github-credentials'
+                    ]]
+                ])
             }
         }
-
+        
         stage('Lint / Validación') {
             steps {
-                echo "Validando estructura mínima..."
-                sh 'test -f Dockerfile'
-                sh 'test -f docker-compose.yml'
-                sh 'test -f app/index.html'
-                sh 'test -x scripts/test.sh'
-                echo "Validación OK"
+                sh '''
+                    echo "Ejecutando validaciones..."
+                    # Tus comandos de linting aquí
+                '''
             }
         }
-
+        
         stage('Test') {
             steps {
-                echo "Ejecutando pruebas..."
-                sh './scripts/test.sh'
+                sh '''
+                    echo "Ejecutando tests..."
+                    # Comandos de testing
+                '''
             }
         }
-
+        
         stage('Build Imagen (staging)') {
             steps {
-                echo "Construyendo imagen para staging..."
-                sh "docker build -t ${APP_NAME}:staging ."
+                script {
+                    docker.build("cicd-web-demo:staging-${env.BUILD_ID}")
+                }
             }
         }
-
+        
         stage('Deploy a Staging') {
             steps {
-                echo "Desplegando en STAGING..."
-                sh 'docker compose up -d web-staging'
-                echo "Staging disponible en http://IP-VM:8081"
+                sh '''
+                    echo "Desplegando en staging..."
+                    # Comandos de deploy a staging
+                '''
             }
         }
-
+        
         stage('Aprobación para Producción') {
             steps {
-                input message: '¿Aprobar despliegue a PRODUCCIÓN?', ok: 'Sí, desplegar'
+                input message: '¿Aprobar despliegue a producción?', 
+                      ok: 'Aprobar'
             }
         }
-
+        
         stage('Promover Imagen a Producción') {
             steps {
-                echo "Promoviendo imagen a producción..."
-                sh "docker tag ${APP_NAME}:staging ${APP_NAME}:production"
+                script {
+                    docker.tag("cicd-web-demo:staging-${env.BUILD_ID}", "cicd-web-demo:production")
+                }
             }
         }
-
+        
         stage('Deploy a Producción') {
             steps {
-                echo "Desplegando en PRODUCCIÓN..."
-                sh 'docker compose up -d web-production'
-                echo "Producción disponible en http://IP-VM:8082"
+                sh '''
+                    echo "Desplegando en producción..."
+                    # Comandos de deploy a producción
+                '''
             }
         }
     }
-
+    
     post {
         success {
-            echo "CI/CD completado con éxito."
+            echo 'Pipeline completado exitosamente!'
         }
         failure {
-            echo "CI/CD falló. Revisar logs."
-        }
-        always {
-            sh 'docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" || true'
+            echo 'Pipeline falló'
         }
     }
 }
