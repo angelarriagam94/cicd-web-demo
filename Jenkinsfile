@@ -60,9 +60,9 @@ pipeline {
         
         stage('Promover Imagen a Producción') {
             steps {
-                script {
-                    docker.tag("cicd-web-demo:staging-${env.BUILD_ID}", "cicd-web-demo:production")
-                }
+                sh '''
+                    docker tag cicd-web-demo:staging-${BUILD_ID} cicd-web-demo:production
+                '''
             }
         }
         
@@ -85,3 +85,4 @@ pipeline {
         }
     }
 }
+
